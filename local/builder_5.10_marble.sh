@@ -8,7 +8,7 @@ cd "$SCRIPT_DIR"
 # ===== 设置自定义参数 =====
 echo "=====marble build scrips By libiunc ====="
 echo ">>> 读取用户配置..."
-MANIFEST=${MANIFEST:-oppo+oplus+realme}
+MANIFEST=${MANIFEST:-redmi_marble}
 read -p "请输入自定义内核后缀（默认：android12-9-libriunk）: " CUSTOM_SUFFIX
 CUSTOM_SUFFIX=${CUSTOM_SUFFIX:-android12-9-libriunk}
 # read -p "是否启用susfs？(y/n，默认：y): " APPLY_SUSFS
@@ -23,10 +23,10 @@ KSU_BRANCH=${KSU_BRANCH:-l}
 # APPLY_LZ4KD=${APPLY_LZ4KD:-n}
 # read -p "是否启用网络功能增强优化配置？(y/n，在天玑机型上可能导致bug,建议关闭;默认：n): " APPLY_BETTERNET
 # APPLY_BETTERNET=${APPLY_BETTERNET:-n}
-read -p "是否添加 BBR 等一系列拥塞控制算法？(y添加/n禁用/d默认，默认：n): " APPLY_BBR
-APPLY_BBR=${APPLY_BBR:-n}
-read -p "是否启用三星SSG IO调度器？(y/n，默认：y): " APPLY_SSG
-APPLY_SSG=${APPLY_SSG:-y}
+read -p "是否添加 BBR 等一系列拥塞控制算法？(y添加/n禁用/d默认，默认：y): " APPLY_BBR
+APPLY_BBR=${APPLY_BBR:-y}
+# read -p "是否启用三星SSG IO调度器？(y/n，默认：y): " APPLY_SSG
+# APPLY_SSG=${APPLY_SSG:-y}
 # read -p "是否启用Re-Kernel？(y/n，默认：n): " APPLY_REKERNEL
 # APPLY_REKERNEL=${APPLY_REKERNEL:-n}
 # read -p "是否启用内核级基带保护？(y/n，默认：y): " APPLY_BBG
@@ -93,11 +93,32 @@ SU() {
 #SU ./llvm.sh 21 all
 
 # ===== 初始化仓库 =====
+# echo ">>> 初始化仓库..."
+# # rm -rf kernel_workspace
+# # mkdir kernel_workspace
+# cd kernel_workspace
+# git clone --depth=1 https://github.com/Pzqqt/android_kernel_xiaomi_marble -b melt-rebase common
+rm -rf local/kernel_workspace/AnyKernel3
 echo ">>> 初始化仓库..."
-rm -rf kernel_workspace
-mkdir kernel_workspace
-cd kernel_workspace
-git clone --depth=1 https://github.com/Pzqqt/android_kernel_xiaomi_marble -b melt-rebase common
+KERNEL_REPO="$WORKDIR/kernel_workspace/common"
+KERNEL_URL="https://github.com/Pzqqt/android_kernel_xiaomi_marble"
+KERNEL_BRANCH="melt-rebase"
+
+if [ -d "$KERNEL_REPO/.git" ]; then
+    echo ">>> 检测到内核仓库已存在，执行强制更新..."
+    cd "$KERNEL_REPO"
+    git fetch --all
+    git reset --hard origin/$KERNEL_BRANCH
+    git pull origin $KERNEL_BRANCH
+    git clean -fdx
+    echo ">>> 仓库更新完成"
+else
+    echo ">>> 内核仓库不存在，执行克隆..."
+    mkdir -p "$WORKDIR/kernel_workspace"
+    cd "$WORKDIR/kernel_workspace"
+    git clone --depth=1 $KERNEL_URL -b $KERNEL_BRANCH common
+fi
+cd "$WORKDIR/kernel_workspace"
 echo ">>> 初始化仓库完成"
 
 # ===== 清除 abi 文件、去除 -dirty 后缀 =====
@@ -377,9 +398,27 @@ echo ">>> 禁用 defconfig 检查..."
 sed -i 's/check_defconfig//' ./common/build.config.gki
 
 # ===== 编译内核 =====
-echo ">>> 开始编译内核..."
+echo ">>> 开始编译内核..." 
 cd common
-make -j$(nproc --all) LLVM=-21 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error gki_defconfig all
+make -j$(nproc --all) LLVM=1 LLVM_VERSION=22 ARCH=arm64 CROSS_COMPILE=aarch64-linux-gnu- CROSS_COMPILE_ARM32=arm-linux-gnuabeihf- CC=clang LD=ld.lld HOSTCC=clang HOSTLD=ld.lld O=out KCFLAGS+=-O2 KCFLAGS+=-Wno-error marble_defconfig all
+# make -j$(nproc) \
+#     LLVM=-22 \
+#     ARCH=arm64 \
+#     CROSS_COMPILE=aarch64-linux-gnu- \
+#     CROSS_COMPILE_ARM32=arm-linux-gnueabihf- \
+#     CC=/usr/bin/clang-22 \
+#     HOSTCC=/usr/bin/clang-22 \
+#     LD=/usr/bin/ld.lld-22 \
+#     HOSTLD=/usr/bin/ld.lld-22 \
+#     AR=/usr/bin/llvm-ar-22 \
+#     NM=/usr/bin/llvm-nm-22 \
+#     OBJCOPY=/usr/bin/llvm-objcopy-22 \
+#     OBJDUMP=/usr/bin/llvm-objdump-22 \
+#     STRIP=/usr/bin/llvm-strip-22 \
+#     O=out \
+#     KCFLAGS="-O2 -Wno-error" \
+#     marble_defconfig \
+#     all
 echo ">>> 内核编译成功！"
 
 # ===== 选择使用 patch_linux (KPM补丁)=====
@@ -408,12 +447,23 @@ else
 fi
 
 # ===== 克隆并打包 AnyKernel3 =====
-cd "$WORKDIR/kernel_workspace"
-echo ">>> 克隆 AnyKernel3 项目..."
-git clone https://github.com/cctv18/AnyKernel3 --depth=1
+# cd "$WORKDIR/kernel_workspace"
+# echo ">>> 克隆 AnyKernel3 项目..."
+# git clone https://github.com/cctv18/AnyKernel3 --depth=1
+if [ -d "AnyKernel3/.git" ]; then
+    # 是 Git 仓库 - 强制更新
+    git fetch --all
+    git reset --hard origin/master
+    git pull origin master
+    git clean -fdx
+else
+    # 不是 Git 仓库或不存在 - 删除后重新克隆
+    rm -rf AnyKernel3
+    git clone https://github.com/cctv18/AnyKernel3 --depth=1
+fi
 
-echo ">>> 清理 AnyKernel3 Git 信息..."
-rm -rf ./AnyKernel3/.git
+# echo ">>> 清理 AnyKernel3 Git 信息..."
+# rm -rf ./AnyKernel3/.git
 
 echo ">>> 拷贝内核镜像到 AnyKernel3 目录..."
 cp "$OUT_DIR/Image" ./AnyKernel3/
@@ -458,7 +508,7 @@ if [[ "$APPLY_BBG" == "y" || "$APPLY_BBG" == "Y" ]]; then
   ZIP_NAME="${ZIP_NAME}-bbg"
 fi
 
-ZIP_NAME="${ZIP_NAME}-v$(date +%Y%m%d).zip"
+ZIP_NAME="${ZIP_NAME}-v$(date +%Y%m%d-%H%M).zip"
 
 # ===== 打包 ZIP 文件，包括 zram.zip（如果存在） =====
 echo ">>> 打包文件: $ZIP_NAME"
