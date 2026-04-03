@@ -105,33 +105,19 @@ SU() {
 # KERNEL_URL="https://github.com/Pzqqt/android_kernel_xiaomi_marble"
 # KERNEL_BRANCH="melt-rebase"
 
-rm -rf local/kernel_workspace/AnyKernel3
-echo ">>> 初始化仓库..."
-KERNEL_REPO="$WORKDIR/kernel_workspace/common"
-KERNEL_RELEASE_TAG="Melt-marble-v4.6"
-KERNEL_ZIP_URL="https://github.com/Pzqqt/android_kernel_xiaomi_marble/archive/refs/tags/${KERNEL_RELEASE_TAG}.zip"
-KERNEL_ZIP_FILE="kernel_source_${KERNEL_RELEASE_TAG}.zip"
-
-if [ -d "$KERNEL_REPO" ]; then
-    echo ">>> 检测到内核源码已存在，跳过下载..."
+if [ -d "$KERNEL_REPO/.git" ]; then
+    echo ">>> 检测到内核仓库已存在，执行强制更新..."
+    cd "$KERNEL_REPO"
+    git fetch --all
+    git reset --hard origin/$KERNEL_BRANCH
+    git pull origin $KERNEL_BRANCH
+    git clean -fdx
+    echo ">>> 仓库更新完成"
 else
-    echo ">>> 内核源码不存在，从 Release 下载..."
+    echo ">>> 内核仓库不存在，执行克隆..."
     mkdir -p "$WORKDIR/kernel_workspace"
     cd "$WORKDIR/kernel_workspace"
-    
-    # 下载源码 ZIP
-    wget -O "$KERNEL_ZIP_FILE" "$KERNEL_ZIP_URL" || curl -L -o "$KERNEL_ZIP_FILE" "$KERNEL_ZIP_URL"
-    
-    # 解压（GitHub 源码 ZIP 解压后目录名为 仓库名-标签名）
-    unzip -q "$KERNEL_ZIP_FILE"
-    
-    # 重命名为 common
-    mv "android_kernel_xiaomi_marble-${KERNEL_RELEASE_TAG}" common
-    
-    # 清理 ZIP 文件
-    rm -f "$KERNEL_ZIP_FILE"
-    
-    echo ">>> 源码下载并解压完成"
+    git clone --depth=1 $KERNEL_URL -b $KERNEL_BRANCH common
 fi
 cd "$WORKDIR/kernel_workspace"
 echo ">>> 初始化仓库完成"
@@ -285,7 +271,7 @@ fi
 
 # ===== 添加 defconfig 配置项 =====
 echo ">>> 添加 defconfig 配置项..."
-DEFCONFIG_FILE=./common/arch/arm64/configs/marble_defconfig
+DEFCONFIG_FILE=./common/arch/arm64/configs/gki_defconfig
 
 # 写入通用 SUSFS/KSU 配置
 echo "CONFIG_KSU=y" >> "$DEFCONFIG_FILE"
@@ -465,7 +451,6 @@ fi
 # cd "$WORKDIR/kernel_workspace"
 # echo ">>> 克隆 AnyKernel3 项目..."
 # git clone https://github.com/cctv18/AnyKernel3 --depth=1
-cd "$WORKDIR/kernel_workspace"
 rm -rf AnyKernel3
 if [ -d "AnyKernel3/.git" ]; then
     # 是 Git 仓库 - 强制更新
@@ -476,17 +461,17 @@ if [ -d "AnyKernel3/.git" ]; then
 else
     # 不是 Git 仓库或不存在 - 删除后重新克隆
     rm -rf AnyKernel3
-    git clone https://github.com/libiunc/AnyKernel3-marble --depth=1 AnyKernel3
+    git clone https://github.com/libiunc/AnyKernel3-marble --depth=1
 fi
 
 # echo ">>> 清理 AnyKernel3 Git 信息..."
-rm -rf ./AnyKernel3/.git
+rm -rf ./AnyKernel3-marble/.git
 
 echo ">>> 拷贝内核镜像到 AnyKernel3 目录..."
-cp "$OUT_DIR/Image" ./AnyKernel3/
+cp "$OUT_DIR/Image" ./AnyKernel3-marble/
 
 echo ">>> 进入 AnyKernel3 目录并打包 zip..."
-cd "$WORKDIR/kernel_workspace/AnyKernel3"
+cd "$WORKDIR/kernel_workspace/AnyKernel3-marble"
 
 # ===== 如果启用 lz4kd，则下载 zram.zip 并放入当前目录 =====
 if [[ "$APPLY_LZ4KD" == "y" || "$APPLY_LZ4KD" == "Y" ]]; then
