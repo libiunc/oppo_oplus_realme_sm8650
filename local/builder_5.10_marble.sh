@@ -13,10 +13,10 @@ read -p "请输入自定义内核后缀（默认：android12-9-libriunk）: " CU
 CUSTOM_SUFFIX=${CUSTOM_SUFFIX:-android12-9-libriunk}
 # read -p "是否启用susfs？(y/n，默认：y): " APPLY_SUSFS
 # APPLY_SUSFS=${APPLY_SUSFS:-y}
-read -p "是否启用 KPM？(b-(re)sukisu内置kpm, k-kernelpatch next独立kpm实现, n-关闭kpm，默认：n): " USE_PATCH_LINUX
-USE_PATCH_LINUX=${USE_PATCH_LINUX:-n}
-read -p "KSU分支版本(r=ReSukiSU, y=SukiSU Ultra, n=KernelSU Next, k=KSU, l=lkm模式(无内置KSU), 默认：l): " KSU_BRANCH
-KSU_BRANCH=${KSU_BRANCH:-l}
+read -p "是否启用 KPM？(b-(re)sukisu内置kpm, k-kernelpatch next独立kpm实现, n-关闭kpm，默认：k): " USE_PATCH_LINUX
+USE_PATCH_LINUX=${USE_PATCH_LINUX:-k}
+read -p "KSU分支版本(r=ReSukiSU, y=SukiSU Ultra, n=KernelSU Next, k=KSU, l=lkm模式(无内置KSU), 默认：r): " KSU_BRANCH
+KSU_BRANCH=${KSU_BRANCH:-r}
 # read -p "是否应用 lz4 1.10.0 & zstd 1.5.7 补丁？(y/n，默认：y): " APPLY_LZ4
 # APPLY_LZ4=${APPLY_LZ4:-y}
 # read -p "是否应用 lz4kd 补丁？(y/n，默认：n): " APPLY_LZ4KD
@@ -470,13 +470,14 @@ rm -rf AnyKernel3
 if [ -d "AnyKernel3/.git" ]; then
     # 是 Git 仓库 - 强制更新
     git fetch --all
-    git reset --hard origin/master
-    git pull origin master
+    git reset --hard origin/Marble-Melt
+    git pull origin Marble-Melt
     git clean -fdx
 else
     # 不是 Git 仓库或不存在 - 删除后重新克隆
     rm -rf AnyKernel3
-    git clone https://github.com/libiunc/AnyKernel3-marble --depth=1 AnyKernel3
+    git clone --branch Marble-Melt --single-branch --depth 1 https://github.com/Pzqqt/AnyKernel3 AnyKernel3
+
 fi
 
 # echo ">>> 清理 AnyKernel3 Git 信息..."
